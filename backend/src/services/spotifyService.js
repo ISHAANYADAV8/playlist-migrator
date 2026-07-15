@@ -5,7 +5,7 @@ const getAccessToken = async (code) => {
         "https://accounts.spotify.com/api/token",
         new URLSearchParams({
             grant_type: "authorization_code",
-            code: code,
+            code,
             redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
             client_id: process.env.SPOTIFY_CLIENT_ID,
             client_secret: process.env.SPOTIFY_CLIENT_SECRET,
@@ -20,6 +20,34 @@ const getAccessToken = async (code) => {
     return response.data;
 };
 
+const getCurrentUser = async (accessToken) => {
+    const response = await axios.get(
+        "https://api.spotify.com/v1/me",
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        }
+    );
+
+    return response.data;
+};
+
+const getPlaylists = async (accessToken) => {
+    const response = await axios.get(
+        "https://api.spotify.com/v1/me/playlists",
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        }
+    );
+
+    return response.data.items;
+};
+
 module.exports = {
     getAccessToken,
+    getCurrentUser,
+    getPlaylists,
 };

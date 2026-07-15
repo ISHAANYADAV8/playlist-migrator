@@ -1,5 +1,5 @@
-const axios = require("axios");
 const spotifyService = require("../services/spotifyService");
+
 const login = (req, res) => {
     const scope =
         "user-read-email user-read-private playlist-read-private playlist-read-collaborative";
@@ -17,17 +17,20 @@ const login = (req, res) => {
 };
 
 const callback = async (req, res) => {
-    const code = req.query.code;
-
     try {
+        const code = req.query.code;
+
         const tokenData = await spotifyService.getAccessToken(code);
 
-        res.json(tokenData);
+        req.session.accessToken = tokenData.access_token;
+        req.session.refreshToken = tokenData.refresh_token;
+
+        res.redirect("/api/me");
     } catch (error) {
         console.error(error.response?.data || error.message);
 
         res.status(500).json({
-            error: "Failed to exchange authorization code",
+            error: "Failed to authenticate with Spotify",
         });
     }
 };
