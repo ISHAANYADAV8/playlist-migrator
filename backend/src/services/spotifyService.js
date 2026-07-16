@@ -43,11 +43,35 @@ const getPlaylists = async (accessToken) => {
         }
     );
 
-    return response.data.items;
+    return response.data?.items || [];
+};
+
+const getPlaylistTracks = async (accessToken, playlistId) => {
+    console.log("Calling Spotify API...");
+    // Migrated from /tracks to /items due to Spotify's updated API enforcement
+    console.log(`https://api.spotify.com/v1/playlists/${playlistId}/items`);
+
+    const response = await axios.get(
+        `https://api.spotify.com/v1/playlists/${playlistId}/items`,
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+            params: {
+                limit: 100,
+            },
+        }
+    );
+
+    console.log("Spotify Status:", response.status);
+    console.log("Returned type:", typeof response.data);
+    
+    return response.data?.items || [];
 };
 
 module.exports = {
     getAccessToken,
     getCurrentUser,
     getPlaylists,
+    getPlaylistTracks,
 };
