@@ -25,7 +25,8 @@ const callback = async (req, res) => {
         req.session.accessToken = tokenData.access_token;
         req.session.refreshToken = tokenData.refresh_token;
 
-        res.redirect("/api/me");
+        // FIXED: Redirects seamlessly back to the uniform frontend IP zone
+        res.redirect("http://127.0.0.1:5173?spotify=success");
     } catch (error) {
         console.error(error.response?.data || error.message);
 
