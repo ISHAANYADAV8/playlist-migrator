@@ -12,6 +12,7 @@ function App() {
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState(null);
+  const [migrationProgress, setMigrationProgress] = useState(null);
   const [error, setError] = useState(null);
 
   // Parse URL parameters and sync with localStorage on initialization
@@ -83,7 +84,6 @@ function App() {
     window.location.href = 'http://127.0.0.1:3000/google/login';
   };
 
-  // Explicitly flushes the persistent connection tokens
   const handleResetConnections = () => {
     localStorage.removeItem('spotifyConnected');
     localStorage.removeItem('youtubeConnected');
@@ -91,10 +91,11 @@ function App() {
     setYoutubeAuthenticated(false);
     setPlaylists([]);
     setMigrationStatus(null);
+    setMigrationProgress(null);
     setError(null);
   };
 
-  const handleMigrate = async (playlistId) => {
+  const handleMigrate = (playlistId) => {
     if (!youtubeAuthenticated) {
       setError("Please authenticate your YouTube Account card first before starting migration.");
       return;
@@ -102,29 +103,49 @@ function App() {
 
     setLoading(true);
     setMigrationStatus({ message: "Initializing transfer protocols..." });
+    setMigrationProgress(null);
     setError(null);
     
-    try {
-      // FIXED: Added credentials option to authorize playlist migration actions via backend sessions
-      const res = await fetch(`/google/create-playlist/${playlistId}`, { credentials: 'include' });
-      const data = await res.json();
-      
-      if (data.success) {
-        setMigrationStatus({
-          success: true,
-          url: data.url,
-          message: `Successfully migrated! Added: ${data.added || 0}, Skipped: ${data.skipped || 0}`
-        });
-      } else {
-        setError(data.error || "Migration failed. Verify both platforms remain authorized.");
-        setMigrationStatus(null);
+    const eventSource = new EventSource(`/google/create-playlist/${playlistId}`, { withCredentials: true });
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.status === "init") {
+          setMigrationStatus({ message: data.message });
+        } else if (data.status === "progress") {
+          setMigrationProgress(data);
+          setMigrationStatus({ message: "Migrating tracks..." });
+        } else if (data.status === "complete") {
+          setMigrationStatus({
+            success: true,
+            url: data.url,
+            message: `Successfully migrated! Added: ${data.added || 0}, Skipped: ${data.skipped || 0}, Failed: ${data.failed || 0}`
+          });
+          setMigrationProgress(null);
+          setLoading(false);
+          eventSource.close();
+        } else if (data.status === "error") {
+          setError(data.message || "Migration failed.");
+          setMigrationStatus(null);
+          setMigrationProgress(null);
+          setLoading(false);
+          eventSource.close();
+        }
+      } catch (err) {
+        console.error("Failed to parse SSE data", err);
       }
-    } catch (err) {
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("SSE Error:", err);
       setError("Network or server connection dropped during live migration.");
       setMigrationStatus(null);
-    } finally {
+      setMigrationProgress(null);
       setLoading(false);
-    }
+      eventSource.close();
+    };
   };
 
   return (
@@ -245,6 +266,26 @@ function App() {
       {migrationStatus && (
         <div style={{ padding: '20px', backgroundColor: '#064e3b', color: '#a7f3d0', borderLeft: '4px solid #10b981', borderRadius: '6px', marginBottom: '25px', textAlign: 'center' }}>
           <p style={{ margin: '0 0 12px 0', fontWeight: '500' }}>{migrationStatus.message}</p>
+          
+          {migrationProgress && (
+            <div style={{ marginTop: '16px', marginBottom: '16px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '10px' }}>
+                  Processing: <strong>{migrationProgress.currentTrack}</strong> {migrationProgress.currentArtist ? `- ${migrationProgress.currentArtist}` : ''}
+                </span>
+                <span style={{ whiteSpace: 'nowrap' }}>{migrationProgress.added} / {migrationProgress.total}</span>
+              </div>
+              <div style={{ width: '100%', backgroundColor: '#065f46', borderRadius: '8px', height: '12px', overflow: 'hidden' }}>
+                <div style={{ 
+                  width: `${(migrationProgress.added / (migrationProgress.total || 1)) * 100}%`, 
+                  backgroundColor: '#34d399', 
+                  height: '100%', 
+                  transition: 'width 0.3s ease' 
+                }}></div>
+              </div>
+            </div>
+          )}
+
           {migrationStatus.url && (
             <a 
               href={migrationStatus.url} 

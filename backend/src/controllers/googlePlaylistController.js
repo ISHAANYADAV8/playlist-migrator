@@ -3,24 +3,32 @@ const spotifyService = require("../services/spotifyService");
 const youtubeService = require("../services/youtubeService");
 
 const createPlaylist = async (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const sendEvent = (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
     try {
         if (!req.session.googleTokens) {
-            return res.status(401).json({
-                error: "Google not authenticated",
-            });
+            sendEvent({ status: "error", message: "Google not authenticated" });
+            return res.end();
         }
 
         if (!req.session.accessToken) {
-            return res.status(401).json({
-                error: "Spotify not authenticated",
-            });
+            sendEvent({ status: "error", message: "Spotify not authenticated" });
+            return res.end();
         }
 
         const playlistId = req.params.playlistId;
 
         console.log("========== PLAYLIST IMPORT ==========");
-
         console.log("Fetching Spotify playlist...");
+
+        sendEvent({ status: "init", message: "Fetching Spotify playlist tracks..." });
 
         const spotifyTracks = await spotifyService.getPlaylistTracks(
             req.session.accessToken,
@@ -28,7 +36,8 @@ const createPlaylist = async (req, res) => {
         );
 
         console.log(`Spotify Tracks Found: ${spotifyTracks.length}`);
-
+        
+        sendEvent({ status: "init", message: `Found ${spotifyTracks.length} tracks. Creating YouTube Playlist...` });
         console.log("Creating YouTube Playlist...");
 
         const playlist = await googleService.createPlaylist(
@@ -42,17 +51,27 @@ const createPlaylist = async (req, res) => {
         let added = 0;
         let skipped = 0;
         let failed = 0;
+        const total = spotifyTracks.length;
 
         for (const track of spotifyTracks) {
             try {
                 const title = track.item?.name;
-
                 const artist = track.item?.artists
                     ?.map((a) => a.name)
                     .join(" ");
 
                 console.log("--------------------------------");
                 console.log(`Searching: ${title}`);
+
+                sendEvent({
+                    status: "progress",
+                    added,
+                    skipped,
+                    failed,
+                    total,
+                    currentTrack: title,
+                    currentArtist: artist
+                });
 
                 const yt = await youtubeService.searchSong(
                     title,
@@ -61,9 +80,7 @@ const createPlaylist = async (req, res) => {
 
                 if (!yt || !yt.videoId) {
                     console.log("No YouTube match.");
-
                     skipped++;
-
                     continue;
                 }
 
@@ -77,25 +94,17 @@ const createPlaylist = async (req, res) => {
                 );
 
                 added++;
-
                 console.log("Added Successfully.");
 
                 // Prevent YouTube API from rejecting rapid requests
                 await new Promise(resolve => setTimeout(resolve, 500));
 
             } catch (songError) {
-
                 failed++;
-
                 console.log("FAILED SONG:");
-
-                console.dir(songError.response?.data || songError.message, {
-                    depth: null,
-                });
-
+                console.dir(songError.response?.data || songError.message, { depth: null });
                 // wait before continuing
                 await new Promise(resolve => setTimeout(resolve, 1000));
-
                 continue;
             }
         }
@@ -105,7 +114,8 @@ const createPlaylist = async (req, res) => {
         console.log("Skipped:", skipped);
         console.log("Failed:", failed);
 
-        res.json({
+        sendEvent({
+            status: "complete",
             success: true,
             added,
             skipped,
@@ -113,19 +123,16 @@ const createPlaylist = async (req, res) => {
             playlistId: playlist.id,
             url: `https://www.youtube.com/playlist?list=${playlist.id}`,
         });
+        res.end();
 
     } catch (err) {
-
         console.log("========== PLAYLIST IMPORT ERROR ==========");
-
-        console.dir(err.response?.data || err, {
-            depth: null,
+        console.dir(err.response?.data || err, { depth: null });
+        sendEvent({
+            status: "error",
+            message: "Playlist import failed",
         });
-
-        res.status(500).json({
-            error: "Playlist import failed",
-        });
-
+        res.end();
     }
 };
 
