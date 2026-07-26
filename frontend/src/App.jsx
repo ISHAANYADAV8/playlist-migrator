@@ -9,6 +9,7 @@ function App() {
     return localStorage.getItem('youtubeConnected') === 'true';
   });
   
+  const [user, setUser] = useState(null);
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState(null);
@@ -37,6 +38,7 @@ function App() {
 
     // Force fetch playlists immediately if localStorage flags it as true
     if (localStorage.getItem('spotifyConnected') === 'true') {
+      fetchUser();
       fetchPlaylists();
     }
 
@@ -47,6 +49,7 @@ function App() {
         if (data.token) {
           setSpotifyAuthenticated(true);
           localStorage.setItem('spotifyConnected', 'true');
+          fetchUser();
           fetchPlaylists(); // Refresh queue again once token verified
         }
       })
@@ -56,9 +59,22 @@ function App() {
   // Fetch playlists automatically whenever Spotify becomes active
   useEffect(() => {
     if (spotifyAuthenticated) {
+      fetchUser();
       fetchPlaylists();
     }
   }, [spotifyAuthenticated]);
+
+  const fetchUser = async () => {
+    try {
+      const res = await fetch('/api/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch user profile", err);
+    }
+  };
 
   const fetchPlaylists = async () => {
     setLoading(true);
@@ -89,6 +105,7 @@ function App() {
     localStorage.removeItem('youtubeConnected');
     setSpotifyAuthenticated(false);
     setYoutubeAuthenticated(false);
+    setUser(null);
     setPlaylists([]);
     setMigrationStatus(null);
     setMigrationProgress(null);
@@ -153,7 +170,9 @@ function App() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', borderBottom: '1px solid #374151', paddingBottom: '20px' }}>
         <div>
           <h1 style={{ fontSize: '2.5rem', color: '#1DB954', margin: '0 0 5px 0' }}>🎵 Playlist Migrator</h1>
-          <p style={{ color: '#9ca3af', margin: 0 }}>Convert your music across streaming platforms flawlessly</p>
+          <p style={{ color: '#9ca3af', margin: 0 }}>
+            {user ? `Welcome ${user.display_name || user.id}` : 'Convert your music across streaming platforms flawlessly'}
+          </p>
         </div>
         {(spotifyAuthenticated || youtubeAuthenticated) && (
           <button 
