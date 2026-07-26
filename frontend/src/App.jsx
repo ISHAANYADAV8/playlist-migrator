@@ -15,6 +15,7 @@ function App() {
   const [migrationStatus, setMigrationStatus] = useState(null);
   const [migrationProgress, setMigrationProgress] = useState(null);
   const [error, setError] = useState(null);
+  const [migrationSetup, setMigrationSetup] = useState(null); // { playlistId, customName, tracks, selectedIndices, loading }
 
   // Parse URL parameters and sync with localStorage on initialization
   useEffect(() => {
@@ -112,57 +113,122 @@ function App() {
     setError(null);
   };
 
-  const handleMigrate = (playlistId) => {
+  const handleMigrate = async (playlist) => {
     if (!youtubeAuthenticated) {
       setError("Please authenticate your YouTube Account card first before starting migration.");
       return;
     }
 
+    setMigrationSetup({
+      playlistId: playlist.id,
+      originalName: playlist.name,
+      customName: playlist.name,
+      tracks: [],
+      selectedIndices: [],
+      loading: true,
+      error: null
+    });
+
+    try {
+      const res = await fetch(`/api/playlists/${playlist.id}/tracks`, { credentials: 'include' });
+      const tracks = await res.json();
+      if (!res.ok) throw new Error(tracks.error || "Failed to fetch tracks");
+      
+      setMigrationSetup(prev => ({
+        ...prev,
+        tracks: tracks,
+        selectedIndices: tracks.map((_, i) => i),
+        loading: false
+      }));
+    } catch (err) {
+      setMigrationSetup(prev => ({ ...prev, loading: false, error: err.message }));
+    }
+  };
+
+  const handleStartMigration = async () => {
+    const { playlistId, customName, selectedIndices } = migrationSetup;
+    
     setLoading(true);
-    setMigrationStatus({ message: "Initializing transfer protocols..." });
+    setMigrationSetup(null); // close modal
+    setMigrationStatus({ message: "Preparing migration configuration..." });
     setMigrationProgress(null);
     setError(null);
-    
-    const eventSource = new EventSource(`/google/create-playlist/${playlistId}`, { withCredentials: true });
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+    try {
+      // Step 1: Send configuration to backend
+      const prepareRes = await fetch(`/google/prepare-migration/${playlistId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customName, selectedTrackIndices: selectedIndices })
+      });
 
-        if (data.status === "init") {
-          setMigrationStatus({ message: data.message });
-        } else if (data.status === "progress") {
-          setMigrationProgress(data);
-          setMigrationStatus({ message: "Migrating tracks..." });
-        } else if (data.status === "complete") {
-          setMigrationStatus({
-            success: true,
-            url: data.url,
-            message: `Successfully migrated! Added: ${data.added || 0}, Skipped: ${data.skipped || 0}, Failed: ${data.failed || 0}`
-          });
-          setMigrationProgress(null);
-          setLoading(false);
-          eventSource.close();
-        } else if (data.status === "error") {
-          setError(data.message || "Migration failed.");
-          setMigrationStatus(null);
-          setMigrationProgress(null);
-          setLoading(false);
-          eventSource.close();
+      if (!prepareRes.ok) throw new Error("Failed to configure migration");
+
+      // Step 2: Start SSE event stream
+      setMigrationStatus({ message: "Initializing transfer protocols..." });
+      const eventSource = new EventSource(`/google/create-playlist/${playlistId}`, { withCredentials: true });
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.status === "init") {
+            setMigrationStatus({ message: data.message });
+          } else if (data.status === "progress") {
+            setMigrationProgress(data);
+            setMigrationStatus({ message: "Migrating tracks..." });
+          } else if (data.status === "complete") {
+            setMigrationStatus({
+              success: true,
+              url: data.url,
+              message: `Successfully migrated! Added: ${data.added || 0}, Skipped: ${data.skipped || 0}, Failed: ${data.failed || 0}`
+            });
+            setMigrationProgress(null);
+            setLoading(false);
+            eventSource.close();
+          } else if (data.status === "error") {
+            setError(data.message || "Migration failed.");
+            setMigrationStatus(null);
+            setMigrationProgress(null);
+            setLoading(false);
+            eventSource.close();
+          }
+        } catch (err) {
+          console.error("Failed to parse SSE data", err);
         }
-      } catch (err) {
-        console.error("Failed to parse SSE data", err);
-      }
-    };
+      };
 
-    eventSource.onerror = (err) => {
-      console.error("SSE Error:", err);
-      setError("Network or server connection dropped during live migration.");
+      eventSource.onerror = (err) => {
+        console.error("SSE Error:", err);
+        setError("Network or server connection dropped during live migration.");
+        setMigrationStatus(null);
+        setMigrationProgress(null);
+        setLoading(false);
+        eventSource.close();
+      };
+    } catch (err) {
+      setError(err.message);
       setMigrationStatus(null);
-      setMigrationProgress(null);
       setLoading(false);
-      eventSource.close();
-    };
+    }
+  };
+
+  const toggleTrackSelection = (index) => {
+    setMigrationSetup(prev => {
+      const newSelected = prev.selectedIndices.includes(index)
+        ? prev.selectedIndices.filter(i => i !== index)
+        : [...prev.selectedIndices, index];
+      return { ...prev, selectedIndices: newSelected };
+    });
+  };
+
+  const toggleAllTracks = () => {
+    setMigrationSetup(prev => {
+      const allSelected = prev.selectedIndices.length === prev.tracks.length;
+      return {
+        ...prev,
+        selectedIndices: allSelected ? [] : prev.tracks.map((_, i) => i)
+      };
+    });
   };
 
   return (
@@ -336,7 +402,7 @@ function App() {
               </div>
               <button
                 type="button"
-                onClick={() => handleMigrate(playlist.id)}
+                onClick={() => handleMigrate(playlist)}
                 disabled={loading}
                 style={{ 
                   backgroundColor: '#2563eb', 
@@ -355,6 +421,98 @@ function App() {
           ))}
         </div>
       </div>
+
+      {/* STEP 3: MIGRATION SETUP MODAL */}
+      {migrationSetup && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#1f2937', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '600px',
+            maxHeight: '85vh', display: 'flex', flexDirection: 'column', border: '1px solid #374151'
+          }}>
+            <h2 style={{ margin: '0 0 20px 0', color: '#f3f4f6' }}>Configure Migration</h2>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#9ca3af', fontSize: '0.9rem' }}>New YouTube Playlist Name</label>
+              <input 
+                type="text" 
+                value={migrationSetup.customName} 
+                onChange={(e) => setMigrationSetup({...migrationSetup, customName: e.target.value})}
+                style={{
+                  width: '100%', boxSizing: 'border-box', padding: '12px', borderRadius: '6px', border: '1px solid #4b5563', 
+                  backgroundColor: '#111827', color: 'white', fontSize: '1rem'
+                }}
+              />
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px', border: '1px solid #374151', borderRadius: '6px', backgroundColor: '#111827' }}>
+              <div style={{ padding: '12px', borderBottom: '1px solid #374151', display: 'flex', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: '#1f2937', zIndex: 1 }}>
+                <input 
+                  type="checkbox" 
+                  checked={migrationSetup.tracks.length > 0 && migrationSetup.selectedIndices.length === migrationSetup.tracks.length}
+                  onChange={toggleAllTracks}
+                  style={{ marginRight: '12px', cursor: 'pointer', width: '16px', height: '16px' }}
+                />
+                <strong style={{ fontSize: '0.9rem' }}>Select All ({migrationSetup.selectedIndices.length} / {migrationSetup.tracks.length})</strong>
+              </div>
+              
+              {migrationSetup.loading ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#9ca3af' }}>Fetching tracks from Spotify...</div>
+              ) : migrationSetup.error ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#ef4444' }}>{migrationSetup.error}</div>
+              ) : migrationSetup.tracks.length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#9ca3af' }}>No tracks found in this playlist.</div>
+              ) : (
+                <div>
+                  {migrationSetup.tracks.map((track, i) => (
+                    <label key={i} style={{ 
+                      display: 'flex', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #1f2937', 
+                      cursor: 'pointer', transition: 'background 0.2s', backgroundColor: migrationSetup.selectedIndices.includes(i) ? 'transparent' : '#0f172a'
+                    }}>
+                      <input 
+                        type="checkbox" 
+                        checked={migrationSetup.selectedIndices.includes(i)}
+                        onChange={() => toggleTrackSelection(i)}
+                        style={{ marginRight: '12px', cursor: 'pointer' }}
+                      />
+                      <div style={{ overflow: 'hidden' }}>
+                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: migrationSetup.selectedIndices.includes(i) ? '#f3f4f6' : '#6b7280' }}>
+                          {track.title}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: migrationSetup.selectedIndices.includes(i) ? '#9ca3af' : '#4b5563', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {track.artist}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                onClick={() => setMigrationSetup(null)}
+                style={{ padding: '10px 20px', borderRadius: '6px', border: '1px solid #4b5563', backgroundColor: 'transparent', color: '#f3f4f6', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleStartMigration}
+                disabled={migrationSetup.loading || migrationSetup.selectedIndices.length === 0}
+                style={{ 
+                  padding: '10px 20px', borderRadius: '6px', border: 'none', backgroundColor: '#10b981', color: '#111827', 
+                  fontWeight: 'bold', cursor: (migrationSetup.loading || migrationSetup.selectedIndices.length === 0) ? 'not-allowed' : 'pointer',
+                  opacity: (migrationSetup.loading || migrationSetup.selectedIndices.length === 0) ? 0.5 : 1
+                }}
+              >
+                Start Transfer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

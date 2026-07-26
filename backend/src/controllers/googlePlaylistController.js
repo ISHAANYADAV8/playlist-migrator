@@ -2,6 +2,27 @@ const googleService = require("../services/googleService");
 const spotifyService = require("../services/spotifyService");
 const youtubeService = require("../services/youtubeService");
 
+const prepareMigration = (req, res) => {
+    try {
+        const playlistId = req.params.playlistId;
+        const { customName, selectedTrackIndices } = req.body;
+        
+        if (!req.session.migrationConfigs) {
+            req.session.migrationConfigs = {};
+        }
+        
+        req.session.migrationConfigs[playlistId] = {
+            customName: customName || "Spotify Imported Playlist",
+            selectedTrackIndices: selectedTrackIndices || null
+        };
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to prepare migration" });
+    }
+};
+
 const createPlaylist = async (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -30,19 +51,27 @@ const createPlaylist = async (req, res) => {
 
         sendEvent({ status: "init", message: "Fetching Spotify playlist tracks..." });
 
-        const spotifyTracks = await spotifyService.getPlaylistTracks(
+        const config = (req.session.migrationConfigs && req.session.migrationConfigs[playlistId]) || {};
+        const playlistName = config.customName || "Spotify Imported Playlist";
+        
+        let spotifyTracks = await spotifyService.getPlaylistTracks(
             req.session.accessToken,
             playlistId
         );
 
-        console.log(`Spotify Tracks Found: ${spotifyTracks.length}`);
+        if (config.selectedTrackIndices && Array.isArray(config.selectedTrackIndices)) {
+            const selectedSet = new Set(config.selectedTrackIndices);
+            spotifyTracks = spotifyTracks.filter((_, index) => selectedSet.has(index));
+        }
+
+        console.log(`Spotify Tracks to transfer: ${spotifyTracks.length}`);
         
-        sendEvent({ status: "init", message: `Found ${spotifyTracks.length} tracks. Creating YouTube Playlist...` });
+        sendEvent({ status: "init", message: `Found ${spotifyTracks.length} tracks to transfer. Creating YouTube Playlist...` });
         console.log("Creating YouTube Playlist...");
 
         const playlist = await googleService.createPlaylist(
             req.session.googleTokens,
-            "Spotify Imported Playlist",
+            playlistName,
             "Created using Playlist Migrator"
         );
 
@@ -137,5 +166,6 @@ const createPlaylist = async (req, res) => {
 };
 
 module.exports = {
+    prepareMigration,
     createPlaylist,
 };

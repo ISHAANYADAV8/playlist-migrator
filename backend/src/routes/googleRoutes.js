@@ -14,4 +14,9 @@ router.get(
     googlePlaylistController.createPlaylist
 );
 
+router.post(
+    "/prepare-migration/:playlistId",
+    googlePlaylistController.prepareMigration
+);
+
 module.exports = router;
