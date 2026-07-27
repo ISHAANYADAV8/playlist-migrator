@@ -27,7 +27,8 @@ const callback = async (req, res) => {
 
         console.log("Google Login Successful");
 
-        const frontendUrl = (process.env.FRONTEND_URL && process.env.FRONTEND_URL.split(',')[0]) || 'http://127.0.0.1:5173';
+        let frontendUrl = (process.env.FRONTEND_URL && process.env.FRONTEND_URL.split(',')[0]) || 'http://127.0.0.1:5173';
+        frontendUrl = frontendUrl.replace(/['",]/g, '').trim();
         res.redirect(`${frontendUrl}?youtube=success`);
 
     } catch (err) {
