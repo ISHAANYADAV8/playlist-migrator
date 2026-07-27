@@ -80,7 +80,6 @@ function App() {
   const fetchPlaylists = async () => {
     setLoading(true);
     try {
-      // FIXED: Added credentials option so the proxy forwards session cookies to port 3000
       const res = await fetch('/api/playlists', { credentials: 'include' });
       const data = await res.json();
       setPlaylists(Array.isArray(data) ? data : []);
@@ -115,7 +114,8 @@ function App() {
 
   const handleMigrate = async (playlist) => {
     if (!youtubeAuthenticated) {
-      setError("Please authenticate your YouTube Account card first before starting migration.");
+      setError("Please authenticate your YouTube Account first before starting migration.");
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -153,6 +153,7 @@ function App() {
     setMigrationStatus({ message: "Preparing migration configuration..." });
     setMigrationProgress(null);
     setError(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
       // Step 1: Send configuration to backend
@@ -232,280 +233,203 @@ function App() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '40px 20px', fontFamily: 'system-ui, sans-serif', color: '#f3f4f6', backgroundColor: '#111827', minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', borderBottom: '1px solid #374151', paddingBottom: '20px' }}>
+    <>
+      <nav className="navbar">
+        <a href="/" className="nav-brand"><span>▶</span> Playlist Migrator</a>
         <div>
-          <h1 style={{ fontSize: '2.5rem', color: '#1DB954', margin: '0 0 5px 0' }}>🎵 Playlist Migrator</h1>
-          <p style={{ color: '#9ca3af', margin: 0 }}>
-            {user ? `Welcome ${user.display_name || user.id}` : 'Convert your music across streaming platforms flawlessly'}
-          </p>
-        </div>
-        {(spotifyAuthenticated || youtubeAuthenticated) && (
-          <button 
-            type="button" 
-            onClick={handleResetConnections}
-            style={{ backgroundColor: '#374151', color: '#9ca3af', border: '1px solid #4b5563', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            Reset Connections
-          </button>
-        )}
-      </header>
-
-      {/* STEP 1: DYNAMIC AUTHENTICATION STATUS CARDS */}
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
-        
-        {/* SPOTIFY CARD */}
-        <div style={{ 
-          flex: 1, 
-          padding: '24px', 
-          border: spotifyAuthenticated ? '2px solid #1DB954' : '1px solid #374151', 
-          backgroundColor: spotifyAuthenticated ? '#06200e' : '#1f2937',
-          borderRadius: '12px', 
-          textAlign: 'center',
-          transition: 'all 0.3s ease'
-        }}>
-          <h3 style={{ margin: '0 0 12px 0', color: '#f3f4f6' }}>1. Spotify Connection</h3>
-          <div style={{
-            display: 'inline-block',
-            padding: '6px 12px',
-            borderRadius: '12px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            marginBottom: '16px',
-            backgroundColor: spotifyAuthenticated ? '#1DB954' : '#4b5563',
-            color: 'white'
-          }}>
-            {spotifyAuthenticated ? "● ACTIVE SESSION" : "○ NOT CONNECTED"}
-          </div>
-          <br />
-          <button 
-            type="button"
-            onClick={handleSpotifyLogin}
-            disabled={spotifyAuthenticated}
-            style={{ 
-              backgroundColor: spotifyAuthenticated ? '#374151' : '#1DB954', 
-              color: 'white', 
-              border: 'none', 
-              padding: '10px 24px', 
-              borderRadius: '20px', 
-              fontWeight: 'bold', 
-              cursor: spotifyAuthenticated ? 'not-allowed' : 'pointer',
-              opacity: spotifyAuthenticated ? 0.6 : 1
-            }}
-          >
-            {spotifyAuthenticated ? "Connected" : "Link Spotify"}
-          </button>
-        </div>
-
-        {/* YOUTUBE CARD */}
-        <div style={{ 
-          flex: 1, 
-          padding: '24px', 
-          border: youtubeAuthenticated ? '2px solid #10b981' : '1px solid #374151', 
-          backgroundColor: youtubeAuthenticated ? '#06200e' : '#1f2937',
-          borderRadius: '12px', 
-          textAlign: 'center',
-          transition: 'all 0.3s ease'
-        }}>
-          <h3 style={{ margin: '0 0 12px 0', color: '#f3f4f6' }}>2. YouTube Connection</h3>
-          <div style={{
-            display: 'inline-block',
-            padding: '6px 12px',
-            borderRadius: '12px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            marginBottom: '16px',
-            backgroundColor: youtubeAuthenticated ? '#10b981' : '#4b5563',
-            color: 'white'
-          }}>
-            {youtubeAuthenticated ? "● ACCESS GRANTED" : "○ NOT CONNECTED"}
-          </div>
-          <br />
-          <button 
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={youtubeAuthenticated}
-            style={{ 
-              backgroundColor: youtubeAuthenticated ? '#374151' : '#ef4444', 
-              color: 'white', 
-              border: 'none', 
-              padding: '10px 24px', 
-              borderRadius: '20px', 
-              fontWeight: 'bold', 
-              cursor: youtubeAuthenticated ? 'not-allowed' : 'pointer',
-              opacity: youtubeAuthenticated ? 0.6 : 1
-            }}
-          >
-            {youtubeAuthenticated ? "Connected" : "Link YouTube"}
-          </button>
-        </div>
-      </div>
-
-      {/* ALERT AND NOTIFICATION DISPLAY BLOCKS */}
-      {error && (
-        <div style={{ padding: '16px', backgroundColor: '#7f1d1d', color: '#fca5a5', borderLeft: '4px solid #ef4444', borderRadius: '6px', marginBottom: '25px' }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-      
-      {migrationStatus && (
-        <div style={{ padding: '20px', backgroundColor: '#064e3b', color: '#a7f3d0', borderLeft: '4px solid #10b981', borderRadius: '6px', marginBottom: '25px', textAlign: 'center' }}>
-          <p style={{ margin: '0 0 12px 0', fontWeight: '500' }}>{migrationStatus.message}</p>
-          
-          {migrationProgress && (
-            <div style={{ marginTop: '16px', marginBottom: '16px', textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '10px' }}>
-                  Processing: <strong>{migrationProgress.currentTrack}</strong> {migrationProgress.currentArtist ? `- ${migrationProgress.currentArtist}` : ''}
-                </span>
-                <span style={{ whiteSpace: 'nowrap' }}>{migrationProgress.added} / {migrationProgress.total}</span>
-              </div>
-              <div style={{ width: '100%', backgroundColor: '#065f46', borderRadius: '8px', height: '12px', overflow: 'hidden' }}>
-                <div style={{ 
-                  width: `${(migrationProgress.added / (migrationProgress.total || 1)) * 100}%`, 
-                  backgroundColor: '#34d399', 
-                  height: '100%', 
-                  transition: 'width 0.3s ease' 
-                }}></div>
-              </div>
-            </div>
-          )}
-
-          {migrationStatus.url && (
-            <a 
-              href={migrationStatus.url} 
-              target="_blank" 
-              rel="noreferrer" 
-              style={{ display: 'inline-block', backgroundColor: '#10b981', color: '#111827', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', textDecoration: 'none' }}
-            >
-              Open Converted Playlist ↗
-            </a>
+          {(spotifyAuthenticated || youtubeAuthenticated) && (
+            <button className="nav-btn" onClick={handleResetConnections}>Reset Connections</button>
           )}
         </div>
-      )}
+      </nav>
 
-      {/* STEP 2: ACTIVE CONTENT DISPLAY */}
-      <div style={{ backgroundColor: '#1f2937', padding: '24px', borderRadius: '12px', border: '1px solid #374151' }}>
-        <h2 style={{ marginTop: 0, borderBottom: '1px solid #374151', paddingBottom: '12px' }}>Your Conversion Queue</h2>
-        {loading && <p style={{ color: '#9ca3af' }}>Processing stream arrays... Please maintain this window tab.</p>}
-        
-        {!loading && playlists.length === 0 && (
-          <p style={{ color: '#9ca3af', margin: 0 }}>No active track collections queued. Connect your Spotify profile to parse metadata collections.</p>
-        )}
-
-        <div style={{ display: 'grid', gap: '12px' }}>
-          {playlists.map((playlist) => (
-            <div key={playlist.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#111827', borderRadius: '8px', border: '1px solid #374151' }}>
-              <div>
-                <strong style={{ fontSize: '1.1rem', color: '#f3f4f6' }}>{playlist.name}</strong>
-                <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginTop: '4px' }}>Metadata Assets: {playlist.tracks?.total} tracks</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleMigrate(playlist)}
-                disabled={loading}
-                style={{ 
-                  backgroundColor: '#2563eb', 
-                  color: 'white', 
-                  border: 'none', 
-                  padding: '10px 18px', 
-                  borderRadius: '6px', 
-                  cursor: loading ? 'not-allowed' : 'pointer', 
-                  fontWeight: 'bold',
-                  transition: 'background 0.2s'
-                }}
-              >
-                Migrate Playlist
-              </button>
-            </div>
-          ))}
-        </div>
+      <div className="hero">
+        <h1>Move your music.<br/>Without missing a beat.</h1>
+        <p>
+          Seamlessly convert your favorite playlists between Spotify and YouTube Music. 
+          {user ? ` Welcome back, ${user.display_name || user.id}!` : ' Experience a premium transfer process with flawless metadata matching.'}
+        </p>
       </div>
 
-      {/* STEP 3: MIGRATION SETUP MODAL */}
-      {migrationSetup && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-          backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: '#1f2937', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '600px',
-            maxHeight: '85vh', display: 'flex', flexDirection: 'column', border: '1px solid #374151'
-          }}>
-            <h2 style={{ margin: '0 0 20px 0', color: '#f3f4f6' }}>Configure Migration</h2>
+      <div className="main-container">
+        {/* Alerts */}
+        {error && (
+          <div className="alert alert-error">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+        
+        {migrationStatus && (
+          <div className="alert alert-success glass-panel" style={{ textAlign: 'center' }}>
+            <p style={{ margin: '0 0 16px 0', fontWeight: '500', fontSize: '1.2rem' }}>{migrationStatus.message}</p>
             
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#9ca3af', fontSize: '0.9rem' }}>New YouTube Playlist Name</label>
+            {migrationProgress && (
+              <div style={{ marginTop: '20px', marginBottom: '20px', textAlign: 'left' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '10px' }}>
+                    Processing: <strong style={{ color: 'var(--text-primary)' }}>{migrationProgress.currentTrack}</strong> {migrationProgress.currentArtist ? `- ${migrationProgress.currentArtist}` : ''}
+                  </span>
+                  <span style={{ whiteSpace: 'nowrap', fontWeight: '600', color: 'var(--text-primary)' }}>{migrationProgress.added} / {migrationProgress.total}</span>
+                </div>
+                <div className="progress-container">
+                  <div className="progress-bar" style={{ width: `${(migrationProgress.added / (migrationProgress.total || 1)) * 100}%` }}></div>
+                </div>
+              </div>
+            )}
+
+            {migrationStatus.url && (
+              <a 
+                href={migrationStatus.url} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="btn btn-spotify"
+                style={{ marginTop: '10px', textDecoration: 'none' }}
+              >
+                Open Converted Playlist ↗
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Auth Cards Grid */}
+        <div className="auth-grid">
+          {/* Spotify Card */}
+          <div className="glass-panel auth-card">
+            <h3>Spotify</h3>
+            <div className={`status-badge ${spotifyAuthenticated ? 'status-active spotify' : 'status-inactive'}`}>
+              {spotifyAuthenticated ? 'Connected' : 'Not Connected'}
+            </div>
+            <button 
+              className="btn btn-spotify" 
+              onClick={handleSpotifyLogin} 
+              disabled={spotifyAuthenticated}
+            >
+              {spotifyAuthenticated ? 'Active' : 'Link Spotify'}
+            </button>
+          </div>
+
+          {/* YouTube Card */}
+          <div className="glass-panel auth-card">
+            <h3>YouTube</h3>
+            <div className={`status-badge ${youtubeAuthenticated ? 'status-active youtube' : 'status-inactive'}`}>
+              {youtubeAuthenticated ? 'Connected' : 'Not Connected'}
+            </div>
+            <button 
+              className="btn btn-youtube" 
+              onClick={handleGoogleLogin} 
+              disabled={youtubeAuthenticated}
+            >
+              {youtubeAuthenticated ? 'Active' : 'Link YouTube'}
+            </button>
+          </div>
+        </div>
+
+        {/* Playlist Queue Section */}
+        <div className="glass-panel">
+          <h2 className="queue-header">Your Playlists</h2>
+          {loading && <p style={{ color: 'var(--text-secondary)' }}>Loading collections...</p>}
+          
+          {!loading && playlists.length === 0 && (
+            <p style={{ color: 'var(--text-secondary)' }}>No active track collections found. Connect Spotify to view playlists.</p>
+          )}
+
+          <div>
+            {playlists.map((playlist) => (
+              <div key={playlist.id} className="playlist-item">
+                <div className="playlist-info">
+                  <h4>{playlist.name}</h4>
+                  <p>{playlist.tracks?.total} tracks</p>
+                </div>
+                <button 
+                  className="btn btn-migrate" 
+                  onClick={() => handleMigrate(playlist)} 
+                  disabled={loading}
+                >
+                  Migrate
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="footer">
+        <p>&copy; {new Date().getFullYear()} Playlist Migrator. Designed for premium music transfer.</p>
+      </footer>
+
+      {/* Migration Setup Modal */}
+      {migrationSetup && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Configure Transfer</h2>
+            </div>
+            
+            <div className="modal-body">
+              <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '8px' }}>
+                New YouTube Playlist Name
+              </label>
               <input 
                 type="text" 
+                className="input-field"
                 value={migrationSetup.customName} 
                 onChange={(e) => setMigrationSetup({...migrationSetup, customName: e.target.value})}
-                style={{
-                  width: '100%', boxSizing: 'border-box', padding: '12px', borderRadius: '6px', border: '1px solid #4b5563', 
-                  backgroundColor: '#111827', color: 'white', fontSize: '1rem'
-                }}
               />
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px', border: '1px solid #374151', borderRadius: '6px', backgroundColor: '#111827' }}>
-              <div style={{ padding: '12px', borderBottom: '1px solid #374151', display: 'flex', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: '#1f2937', zIndex: 1 }}>
-                <input 
-                  type="checkbox" 
-                  checked={migrationSetup.tracks.length > 0 && migrationSetup.selectedIndices.length === migrationSetup.tracks.length}
-                  onChange={toggleAllTracks}
-                  style={{ marginRight: '12px', cursor: 'pointer', width: '16px', height: '16px' }}
-                />
-                <strong style={{ fontSize: '0.9rem' }}>Select All ({migrationSetup.selectedIndices.length} / {migrationSetup.tracks.length})</strong>
-              </div>
               
-              {migrationSetup.loading ? (
-                <div style={{ padding: '30px', textAlign: 'center', color: '#9ca3af' }}>Fetching tracks from Spotify...</div>
-              ) : migrationSetup.error ? (
-                <div style={{ padding: '30px', textAlign: 'center', color: '#ef4444' }}>{migrationSetup.error}</div>
-              ) : migrationSetup.tracks.length === 0 ? (
-                <div style={{ padding: '30px', textAlign: 'center', color: '#9ca3af' }}>No tracks found in this playlist.</div>
-              ) : (
-                <div>
-                  {migrationSetup.tracks.map((track, i) => (
-                    <label key={i} style={{ 
-                      display: 'flex', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #1f2937', 
-                      cursor: 'pointer', transition: 'background 0.2s', backgroundColor: migrationSetup.selectedIndices.includes(i) ? 'transparent' : '#0f172a'
-                    }}>
-                      <input 
-                        type="checkbox" 
-                        checked={migrationSetup.selectedIndices.includes(i)}
-                        onChange={() => toggleTrackSelection(i)}
-                        style={{ marginRight: '12px', cursor: 'pointer' }}
-                      />
-                      <div style={{ overflow: 'hidden' }}>
-                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: migrationSetup.selectedIndices.includes(i) ? '#f3f4f6' : '#6b7280' }}>
-                          {track.title}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: migrationSetup.selectedIndices.includes(i) ? '#9ca3af' : '#4b5563', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {track.artist}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
+              <div className="track-list">
+                <div className="track-item" style={{ background: 'rgba(0,0,0,0.5)', position: 'sticky', top: 0, zIndex: 1, borderBottom: '1px solid var(--border-light)' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={migrationSetup.tracks.length > 0 && migrationSetup.selectedIndices.length === migrationSetup.tracks.length}
+                    onChange={toggleAllTracks}
+                    style={{ marginRight: '16px', cursor: 'pointer', width: '18px', height: '18px' }}
+                  />
+                  <strong>Select All ({migrationSetup.selectedIndices.length} / {migrationSetup.tracks.length})</strong>
                 </div>
-              )}
+                
+                {migrationSetup.loading ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>Fetching tracks from Spotify...</div>
+                ) : migrationSetup.error ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: '#ffb3b3' }}>{migrationSetup.error}</div>
+                ) : migrationSetup.tracks.length === 0 ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>No tracks found in this playlist.</div>
+                ) : (
+                  <div>
+                    {migrationSetup.tracks.map((track, i) => (
+                      <label key={i} className={`track-item ${migrationSetup.selectedIndices.includes(i) ? 'selected' : ''}`}>
+                        <input 
+                          type="checkbox" 
+                          checked={migrationSetup.selectedIndices.includes(i)}
+                          onChange={() => toggleTrackSelection(i)}
+                          style={{ marginRight: '16px', cursor: 'pointer' }}
+                        />
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '500', color: migrationSetup.selectedIndices.includes(i) ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                            {track.title}
+                          </div>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {track.artist}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div className="modal-footer">
               <button 
+                className="nav-btn" 
                 onClick={() => setMigrationSetup(null)}
-                style={{ padding: '10px 20px', borderRadius: '6px', border: '1px solid #4b5563', backgroundColor: 'transparent', color: '#f3f4f6', cursor: 'pointer' }}
               >
                 Cancel
               </button>
               <button 
+                className="btn btn-migrate" 
                 onClick={handleStartMigration}
                 disabled={migrationSetup.loading || migrationSetup.selectedIndices.length === 0}
-                style={{ 
-                  padding: '10px 20px', borderRadius: '6px', border: 'none', backgroundColor: '#10b981', color: '#111827', 
-                  fontWeight: 'bold', cursor: (migrationSetup.loading || migrationSetup.selectedIndices.length === 0) ? 'not-allowed' : 'pointer',
-                  opacity: (migrationSetup.loading || migrationSetup.selectedIndices.length === 0) ? 0.5 : 1
-                }}
               >
                 Start Transfer
               </button>
@@ -513,7 +437,7 @@ function App() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
