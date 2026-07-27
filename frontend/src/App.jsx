@@ -181,7 +181,10 @@ function App() {
             setMigrationStatus({
               success: true,
               url: data.url,
-              message: `Successfully migrated! Added: ${data.added || 0}, Skipped: ${data.skipped || 0}, Failed: ${data.failed || 0}`
+              added: data.added || 0,
+              skipped: data.skipped || 0,
+              failed: data.failed || 0,
+              message: "Migration Complete 🎉"
             });
             setMigrationProgress(null);
             setLoading(false);
@@ -277,6 +280,16 @@ function App() {
               </div>
             )}
 
+            {migrationStatus.success && (
+              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '8px', marginBottom: '16px', textAlign: 'left' }}>
+                <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Tracks Found: <strong style={{ color: 'var(--text-primary)' }}>{migrationStatus.added + migrationStatus.skipped + migrationStatus.failed}</strong></p>
+                <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Tracks Skipped: <strong style={{ color: 'var(--text-primary)' }}>{migrationStatus.skipped}</strong></p>
+                <p style={{ margin: '0', color: 'var(--text-secondary)' }}>Success Rate: <strong style={{ color: 'var(--spotify-green)' }}>
+                  {((migrationStatus.added / ((migrationStatus.added + migrationStatus.skipped + migrationStatus.failed) || 1)) * 100).toFixed(1)}%
+                </strong></p>
+              </div>
+            )}
+
             {migrationStatus.url && (
               <a 
                 href={migrationStatus.url} 
@@ -338,7 +351,7 @@ function App() {
               <div key={playlist.id} className="playlist-item">
                 <div className="playlist-info">
                   <h4>{playlist.name}</h4>
-                  <p>{playlist.tracks?.total} tracks</p>
+                  <p>{playlist.tracks?.total} tracks &bull; By {playlist.owner?.display_name || 'Unknown User'}</p>
                 </div>
                 <button 
                   className="btn btn-migrate" 
