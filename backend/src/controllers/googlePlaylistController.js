@@ -103,31 +103,47 @@ const createPlaylist = async (req, res) => {
                     currentArtist: artist
                 });
 
-                const yt = await youtubeService.searchSong(
-                    title,
-                    artist,
-                    addedVideoIds
-                );
+                let songAdded = false;
+                let attempts = 0;
 
-                if (!yt || !yt.videoId) {
-                    console.log("No YouTube match.");
-                    skipped++;
-                    continue;
+                while (!songAdded && attempts < 3) {
+                    attempts++;
+                    const yt = await youtubeService.searchSong(
+                        title,
+                        artist,
+                        addedVideoIds
+                    );
+
+                    if (!yt || !yt.videoId) {
+                        console.log("No YouTube match on attempt", attempts);
+                        break;
+                    }
+
+                    console.log(`Matched: ${yt.name}`);
+                    console.log(`Adding Video: ${yt.videoId}`);
+
+                    try {
+                        await googleService.addVideoToPlaylist(
+                            req.session.googleTokens,
+                            playlist.id,
+                            yt.videoId
+                        );
+                        
+                        addedVideoIds.push(yt.videoId);
+                        added++;
+                        console.log("Added Successfully.");
+                        songAdded = true;
+                    } catch (addError) {
+                        console.log(`YouTube API rejected video ${yt.videoId}. Finding next best match...`);
+                        addedVideoIds.push(yt.videoId); // Blacklist this videoId for the next search
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
                 }
 
-                console.log(`Matched: ${yt.name}`);
-                console.log(`Adding Video: ${yt.videoId}`);
-
-                await googleService.addVideoToPlaylist(
-                    req.session.googleTokens,
-                    playlist.id,
-                    yt.videoId
-                );
-                
-                addedVideoIds.push(yt.videoId);
-
-                added++;
-                console.log("Added Successfully.");
+                if (!songAdded) {
+                    failed++;
+                    console.log(`Completely failed to add: ${title}`);
+                }
 
                 // Prevent YouTube API from rejecting rapid requests
                 await new Promise(resolve => setTimeout(resolve, 500));
