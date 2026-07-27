@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+
 function App() {
   // Initialize state directly from localStorage so it survives redirects and page reloads
   const [spotifyAuthenticated, setSpotifyAuthenticated] = useState(() => {
@@ -44,7 +46,7 @@ function App() {
     }
 
     // Ping backend token endpoint to double-verify active backend state with credentials passed
-    fetch('/api/token', { credentials: 'include' })
+    fetch(`${API_BASE}/api/token`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
         if (data.token) {
@@ -67,7 +69,7 @@ function App() {
 
   const fetchUser = async () => {
     try {
-      const res = await fetch('/api/me', { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/me`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setUser(data);
@@ -80,7 +82,7 @@ function App() {
   const fetchPlaylists = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/playlists', { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/playlists`, { credentials: 'include' });
       const data = await res.json();
       setPlaylists(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -92,12 +94,12 @@ function App() {
 
   const handleSpotifyLogin = (e) => {
     e.preventDefault();
-    window.location.href = 'http://127.0.0.1:3000/auth/spotify/login';
+    window.location.href = `${API_BASE}/auth/spotify/login`;
   };
 
   const handleGoogleLogin = (e) => {
     e.preventDefault();
-    window.location.href = 'http://127.0.0.1:3000/google/login';
+    window.location.href = `${API_BASE}/google/login`;
   };
 
   const handleResetConnections = () => {
@@ -130,7 +132,7 @@ function App() {
     });
 
     try {
-      const res = await fetch(`/api/playlists/${playlist.id}/tracks`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/playlists/${playlist.id}/tracks`, { credentials: 'include' });
       const tracks = await res.json();
       if (!res.ok) throw new Error(tracks.error || "Failed to fetch tracks");
       
@@ -157,9 +159,10 @@ function App() {
 
     try {
       // Step 1: Send configuration to backend
-      const prepareRes = await fetch(`/google/prepare-migration/${playlistId}`, {
+      const prepareRes = await fetch(`${API_BASE}/google/prepare-migration/${playlistId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ customName, selectedTrackIndices: selectedIndices })
       });
 
@@ -167,7 +170,7 @@ function App() {
 
       // Step 2: Start SSE event stream
       setMigrationStatus({ message: "Initializing transfer protocols..." });
-      const eventSource = new EventSource(`/google/create-playlist/${playlistId}`, { withCredentials: true });
+      const eventSource = new EventSource(`${API_BASE}/google/create-playlist/${playlistId}`, { withCredentials: true });
 
       eventSource.onmessage = (event) => {
         try {
