@@ -25,12 +25,21 @@ app.use(
     })
 );
 
+// Trust proxy is required for secure cookies behind Render/Heroku
+app.set('trust proxy', 1);
+
+const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER || !!process.env.FRONTEND_URL;
+
 // SESSION MUST COME BEFORE ANY ROUTES
 app.use(
     session({
         secret: "playlist-converter-secret",
         resave: false,
         saveUninitialized: false,
+        cookie: {
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax"
+        }
     })
 );
 
