@@ -189,6 +189,7 @@ function App() {
               skipped: data.skipped || 0,
               failed: data.failed || 0,
               failedTracks: data.failedTracks || [],
+              playlistId: data.playlistId,
               message: "Migration Complete 🎉"
             });
             setMigrationProgress(null);
