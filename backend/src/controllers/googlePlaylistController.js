@@ -157,9 +157,13 @@ const createPlaylist = async (req, res) => {
     } catch (err) {
         console.log("========== PLAYLIST IMPORT ERROR ==========");
         console.dir(err.response?.data || err, { depth: null });
+        
+        // Extract specific Google API error if it exists
+        const errorMsg = err.response?.data?.error?.message || err.message || "Unknown error";
+        
         sendEvent({
             status: "error",
-            message: "Playlist import failed",
+            message: `Playlist import failed: ${errorMsg}`,
         });
         res.end();
     }
