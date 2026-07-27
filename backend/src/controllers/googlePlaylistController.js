@@ -81,6 +81,7 @@ const createPlaylist = async (req, res) => {
         let skipped = 0;
         let failed = 0;
         const total = spotifyTracks.length;
+        const addedVideoIds = []; // Prevent duplicates in the same migration
 
         for (const track of spotifyTracks) {
             try {
@@ -104,7 +105,8 @@ const createPlaylist = async (req, res) => {
 
                 const yt = await youtubeService.searchSong(
                     title,
-                    artist
+                    artist,
+                    addedVideoIds
                 );
 
                 if (!yt || !yt.videoId) {
@@ -121,6 +123,8 @@ const createPlaylist = async (req, res) => {
                     playlist.id,
                     yt.videoId
                 );
+                
+                addedVideoIds.push(yt.videoId);
 
                 added++;
                 console.log("Added Successfully.");
