@@ -287,8 +287,10 @@ function App() {
 
             {migrationStatus.success && (
               <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '8px', marginBottom: '16px', textAlign: 'left' }}>
-                <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Tracks Found: <strong style={{ color: 'var(--text-primary)' }}>{migrationStatus.added + migrationStatus.skipped + migrationStatus.failed}</strong></p>
+                <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Total Tracks: <strong style={{ color: 'var(--text-primary)' }}>{migrationStatus.added + migrationStatus.skipped + migrationStatus.failed}</strong></p>
+                <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Tracks Added: <strong style={{ color: 'var(--spotify-green)' }}>{migrationStatus.added}</strong></p>
                 <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Tracks Skipped: <strong style={{ color: 'var(--text-primary)' }}>{migrationStatus.skipped}</strong></p>
+                <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Tracks Failed: <strong style={{ color: '#ffb3b3' }}>{migrationStatus.failed}</strong></p>
                 <p style={{ margin: '0', color: 'var(--text-secondary)' }}>Success Rate: <strong style={{ color: 'var(--spotify-green)' }}>
                   {((migrationStatus.added / ((migrationStatus.added + migrationStatus.skipped + migrationStatus.failed) || 1)) * 100).toFixed(1)}%
                 </strong></p>
