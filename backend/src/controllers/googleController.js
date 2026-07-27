@@ -27,8 +27,8 @@ const callback = async (req, res) => {
 
         console.log("Google Login Successful");
 
-        // FIXED: Redirects seamlessly back to the uniform frontend IP zone
-        res.redirect("http://127.0.0.1:5173?youtube=success");
+        const frontendUrl = (process.env.FRONTEND_URL && process.env.FRONTEND_URL.split(',')[0]) || 'http://127.0.0.1:5173';
+        res.redirect(`${frontendUrl}?youtube=success`);
 
     } catch (err) {
         console.log(err);
