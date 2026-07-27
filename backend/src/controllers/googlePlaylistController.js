@@ -76,6 +76,11 @@ const createPlaylist = async (req, res) => {
         );
 
         console.log("YouTube Playlist ID:", playlist.id);
+        
+        // CRITICAL FIX: YouTube Data API often takes 2-3 seconds to propagate a newly created playlist across its global servers.
+        // If we try to add videos immediately, it will throw a 404 Playlist Not Found error, causing the migration to blacklist perfectly good videos!
+        console.log("Waiting 3 seconds for YouTube servers to propagate the new playlist...");
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
         let added = 0;
         let skipped = 0;
