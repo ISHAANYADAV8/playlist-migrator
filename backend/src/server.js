@@ -2,6 +2,7 @@ require("dotenv").config();
 const googleRoutes = require("./routes/googleRoutes");
 const express = require("express");
 const session = require("express-session");
+const cors = require("cors");
 
 const youtubeService = require("./services/youtubeService");
 
@@ -13,6 +14,16 @@ const youtubeRoutes = require("./routes/youtubeRoutes");
 const app = express();
 
 app.use(express.json());
+
+// CORS configuration for frontend
+app.use(
+    cors({
+        origin: process.env.FRONTEND_URL 
+            ? process.env.FRONTEND_URL.split(',') 
+            : ['http://127.0.0.1:5173', 'http://127.0.0.1:5174', 'http://localhost:5173', 'http://localhost:5174'],
+        credentials: true,
+    })
+);
 
 // SESSION MUST COME BEFORE ANY ROUTES
 app.use(
