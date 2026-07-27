@@ -275,10 +275,12 @@ function App() {
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '10px' }}>
                     Processing: <strong style={{ color: 'var(--text-primary)' }}>{migrationProgress.currentTrack}</strong> {migrationProgress.currentArtist ? `- ${migrationProgress.currentArtist}` : ''}
                   </span>
-                  <span style={{ whiteSpace: 'nowrap', fontWeight: '600', color: 'var(--text-primary)' }}>{migrationProgress.added} / {migrationProgress.total}</span>
+                  <span style={{ whiteSpace: 'nowrap', fontWeight: '600', color: 'var(--text-primary)' }}>
+                    {(migrationProgress.added || 0) + (migrationProgress.skipped || 0) + (migrationProgress.failed || 0)} / {migrationProgress.total}
+                  </span>
                 </div>
                 <div className="progress-container">
-                  <div className="progress-bar" style={{ width: `${(migrationProgress.added / (migrationProgress.total || 1)) * 100}%` }}></div>
+                  <div className="progress-bar" style={{ width: `${(((migrationProgress.added || 0) + (migrationProgress.skipped || 0) + (migrationProgress.failed || 0)) / (migrationProgress.total || 1)) * 100}%` }}></div>
                 </div>
               </div>
             )}

@@ -15,9 +15,23 @@ const searchSong = async (title, artist) => {
         return null;
     }
 
-    const exact = results.find(song =>
-        song.name.toLowerCase().includes(title.toLowerCase())
-    );
+    const cleanStr = (str) => (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanTitle = cleanStr(title);
+    const cleanArtist = cleanStr(artist);
+
+    let exact = results.find(song => {
+        const songTitle = cleanStr(song.name);
+        const songArtist = cleanStr(song.artist?.name);
+        return songTitle.includes(cleanTitle) && songArtist.includes(cleanArtist);
+    });
+
+    if (!exact) {
+        exact = results.find(song => cleanStr(song.artist?.name).includes(cleanArtist));
+    }
+
+    if (!exact) {
+        exact = results.find(song => cleanStr(song.name).includes(cleanTitle));
+    }
 
     return exact || results[0];
 };
