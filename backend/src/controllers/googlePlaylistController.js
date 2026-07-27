@@ -82,6 +82,7 @@ const createPlaylist = async (req, res) => {
         let failed = 0;
         const total = spotifyTracks.length;
         const addedVideoIds = []; // Prevent duplicates in the same migration
+        const failedTracks = []; // Track metadata for manual resolution
 
         for (const track of spotifyTracks) {
             try {
@@ -142,6 +143,7 @@ const createPlaylist = async (req, res) => {
 
                 if (!songAdded) {
                     failed++;
+                    failedTracks.push({ title, artist });
                     console.log(`Completely failed to add: ${title}`);
                 }
 
@@ -150,6 +152,7 @@ const createPlaylist = async (req, res) => {
 
             } catch (songError) {
                 failed++;
+                failedTracks.push({ title: track.item?.name, artist: track.item?.artists?.map((a) => a.name).join(" ") });
                 console.log("FAILED SONG:");
                 console.dir(songError.response?.data || songError.message, { depth: null });
                 // wait before continuing
@@ -169,6 +172,7 @@ const createPlaylist = async (req, res) => {
             added,
             skipped,
             failed,
+            failedTracks,
             playlistId: playlist.id,
             url: `https://www.youtube.com/playlist?list=${playlist.id}`,
         });

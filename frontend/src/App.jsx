@@ -18,6 +18,7 @@ function App() {
   const [migrationProgress, setMigrationProgress] = useState(null);
   const [error, setError] = useState(null);
   const [migrationSetup, setMigrationSetup] = useState(null); // { playlistId, customName, tracks, selectedIndices, loading }
+  const [manualResolution, setManualResolution] = useState(null); // { track, results, loading, error }
 
   // Parse URL parameters and sync with localStorage on initialization
   useEffect(() => {
@@ -187,6 +188,7 @@ function App() {
               added: data.added || 0,
               skipped: data.skipped || 0,
               failed: data.failed || 0,
+              failedTracks: data.failedTracks || [],
               message: "Migration Complete 🎉"
             });
             setMigrationProgress(null);
@@ -236,6 +238,43 @@ function App() {
         selectedIndices: allSelected ? [] : prev.tracks.map((_, i) => i)
       };
     });
+  };
+
+  const handleResolveTrack = async (track) => {
+    setManualResolution({ track, results: [], loading: true, error: null });
+    try {
+        const query = `${track.title} ${track.artist}`;
+        const res = await fetch(`${API_BASE}/google/search?query=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        setManualResolution({ track, results: data.results, loading: false, error: null });
+    } catch (err) {
+        setManualResolution({ track, results: [], loading: false, error: "Failed to search YouTube" });
+    }
+  };
+
+  const handleManualAdd = async (videoId) => {
+    setManualResolution(prev => ({ ...prev, loading: true, error: null }));
+    try {
+        const res = await fetch(`${API_BASE}/google/playlist/${migrationStatus.playlistId}/add-video`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ videoId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to add video");
+        
+        // Remove from failedTracks and update counts
+        setMigrationStatus(prev => ({
+            ...prev,
+            added: prev.added + 1,
+            failed: prev.failed - 1,
+            failedTracks: prev.failedTracks.filter(t => t.title !== manualResolution.track.title)
+        }));
+        setManualResolution(null);
+    } catch(err) {
+        setManualResolution(prev => ({ ...prev, loading: false, error: err.message }));
+    }
   };
 
   return (
@@ -307,6 +346,29 @@ function App() {
               >
                 Open Converted Playlist ↗
               </a>
+            )}
+
+            {migrationStatus.success && migrationStatus.failedTracks && migrationStatus.failedTracks.length > 0 && (
+              <div style={{ marginTop: '24px', textAlign: 'left' }}>
+                <h3 style={{ color: '#ffb3b3', marginBottom: '12px' }}>⚠️ Missing Tracks</h3>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>These tracks couldn't be automatically matched or were blocked by YouTube. You can manually resolve them below.</p>
+                
+                {migrationStatus.failedTracks.map((track, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '6px', marginBottom: '8px' }}>
+                    <div style={{ overflow: 'hidden', paddingRight: '16px' }}>
+                      <div style={{ fontWeight: '500', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
+                    </div>
+                    <button 
+                      className="nav-btn" 
+                      style={{ background: 'transparent', border: '1px solid var(--border-light)' }}
+                      onClick={() => handleResolveTrack(track)}
+                    >
+                      Resolve
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -452,6 +514,66 @@ function App() {
                 disabled={migrationSetup.loading || migrationSetup.selectedIndices.length === 0}
               >
                 Start Transfer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Resolution Modal */}
+      {manualResolution && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2>Resolve: {manualResolution.track.title}</h2>
+            </div>
+            
+            <div className="modal-body">
+              {manualResolution.error && (
+                <div style={{ padding: '12px', background: 'rgba(255,0,0,0.1)', color: '#ffb3b3', borderRadius: '6px', marginBottom: '16px' }}>
+                  {manualResolution.error}
+                </div>
+              )}
+              
+              {manualResolution.loading && !manualResolution.results.length ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>Searching YouTube...</div>
+              ) : manualResolution.results.length === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>No results found.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '400px', overflowY: 'auto', paddingRight: '8px' }}>
+                  {manualResolution.results.map((res, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '16px', background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', alignItems: 'center' }}>
+                      {res.thumbnail && (
+                        <img src={res.thumbnail} alt="thumbnail" style={{ width: '120px', height: '68px', objectFit: 'cover', borderRadius: '4px' }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '500', color: 'var(--text-primary)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{res.title}</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', gap: '12px' }}>
+                          <span>📺 {res.channel}</span>
+                          <span>⏱️ {res.duration}</span>
+                        </div>
+                      </div>
+                      <button 
+                        className="btn btn-youtube" 
+                        style={{ padding: '8px 16px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                        onClick={() => handleManualAdd(res.videoId)}
+                        disabled={manualResolution.loading}
+                      >
+                        {manualResolution.loading ? 'Adding...' : 'Add'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                className="nav-btn" 
+                onClick={() => setManualResolution(null)}
+                disabled={manualResolution.loading}
+              >
+                Close
               </button>
             </div>
           </div>
