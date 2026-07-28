@@ -8,14 +8,23 @@ const initialize = async () => {
 };
 
 const cleanTitle = (title) => {
-    return title
+    // 1. Split candidate video titles on delimiters |, :, / and take only the first segment.
+    let clean = title.split(/[|:\/]/)[0];
+
+    clean = clean
+        .replace(/\[.*?official video.*?\]/gi, '')
+        .replace(/\(.*?(lyric|official|audio|from).*?\)/gi, '')
+        .replace(/\b(HD|4K|HQ)\b/gi, '')
         .replace(/\s*\([^)]*(feat|ft\.)[^)]*\)/gi, '')
         .replace(/\s*\[[^\]]*(feat|ft\.)[^\]]*\]/gi, '')
         .replace(/\s*-\s*(Remaster|Live|Radio Edit|Explicit).*$/gi, '')
         .trim();
+        
+    return clean;
 };
 
 const normalizeString = (str) => {
+    if (!str) return "";
     return str
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
         .replace(/[^\w\s]/gi, '') // Remove punctuation
@@ -23,23 +32,27 @@ const normalizeString = (str) => {
         .trim();
 };
 
-const artistMatches = (expectedArtist, candidateArtistInfo) => {
-    if (!candidateArtistInfo) return false;
+const artistMatches = (primaryArtist, expectedArtist, candidateArtistInfo, candidateTitle) => {
+    const cTitleNorm = normalizeString(candidateTitle).toLowerCase();
+    const primaryNorm = normalizeString(primaryArtist).toLowerCase();
+    const expectedNorm = normalizeString(expectedArtist).toLowerCase();
     
-    // ytmusic-api might return a single `artist` object or an `artists` array
-    const artists = Array.isArray(candidateArtistInfo) 
-        ? candidateArtistInfo 
-        : [candidateArtistInfo];
-        
-    const expected = normalizeString(expectedArtist).toLowerCase();
-    return artists.some(artist => {
+    let artists = [];
+    if (candidateArtistInfo) {
+        artists = Array.isArray(candidateArtistInfo) ? candidateArtistInfo : [candidateArtistInfo];
+    }
+    
+    const artistMatch = artists.some(artist => {
         if (!artist || !artist.name) return false;
         const cName = normalizeString(artist.name).toLowerCase();
-        return expected.includes(cName) || cName.includes(expected);
+        return expectedNorm.includes(cName) || cName.includes(expectedNorm);
     });
+
+    const titleMatch = primaryNorm && primaryNorm.length > 2 && cTitleNorm.includes(primaryNorm);
+    return artistMatch || titleMatch;
 };
 
-const findBestMatch = (results, targetTitle, targetArtist) => {
+const findBestMatch = (results, targetTitle, targetArtist, durationMs, primaryArtist) => {
     let match = null;
     let score = -1;
     if (!results || results.length === 0) return { match, score };
@@ -48,12 +61,33 @@ const findBestMatch = (results, targetTitle, targetArtist) => {
     const expectedTitleNorm = normalizeString(targetTitle).toLowerCase();
 
     for (const song of topResults) {
-        if (!artistMatches(targetArtist, song.artist || song.artists)) {
+        if (!artistMatches(primaryArtist, targetArtist, song.artist || song.artists, song.name)) {
             continue;
         }
 
+        if (durationMs && song.duration) {
+            const diffSeconds = Math.abs((durationMs / 1000) - song.duration);
+            if (diffSeconds > 12) {
+                continue; // Reject videos differing by more than 12 seconds
+            }
+        }
+
         const candidateTitleNorm = normalizeString(cleanTitle(song.name)).toLowerCase();
-        const simScore = stringSimilarity.compareTwoStrings(expectedTitleNorm, candidateTitleNorm);
+        let simScore = stringSimilarity.compareTwoStrings(expectedTitleNorm, candidateTitleNorm);
+
+        // Boosts and penalties
+        const isTopicOrVevo = song.artist && song.artist.name && (song.artist.name.endsWith(' - Topic') || song.artist.name.endsWith('VEVO'));
+        if (isTopicOrVevo) {
+            simScore += 0.15;
+        }
+
+        const isCoverOrRemixRequested = expectedTitleNorm.includes('cover') || expectedTitleNorm.includes('remix');
+        const cTitleFullNorm = normalizeString(song.name).toLowerCase();
+        const isCandidateCoverOrRemix = cTitleFullNorm.includes('cover') || cTitleFullNorm.includes('remix') || cTitleFullNorm.includes('fan made');
+
+        if (!isCoverOrRemixRequested && isCandidateCoverOrRemix) {
+            simScore -= 0.3; // Penalty
+        }
 
         if (simScore > score) {
             score = simScore;
@@ -63,19 +97,19 @@ const findBestMatch = (results, targetTitle, targetArtist) => {
     return { match, score };
 };
 
-const searchSong = async (title, artist) => {
+const searchSong = async (title, artist, durationMs, primaryArtist) => {
     const cleanedTitle = cleanTitle(title);
     
-    // First attempt
-    const query = `${cleanedTitle} ${artist}`;
-    const results = await ytmusic.searchSongs(query);
-    let { match: bestMatch, score: bestScore } = findBestMatch(results, cleanedTitle, artist);
+    // First attempt: Title + Artist + Official Audio
+    const primaryQuery = `${cleanedTitle} ${artist} Official Audio`;
+    const results = await ytmusic.searchSongs(primaryQuery);
+    let { match: bestMatch, score: bestScore } = findBestMatch(results, cleanedTitle, artist, durationMs, primaryArtist);
 
     // Fallback attempt if score is low
-    if (bestScore < 0.6) {
-        const fallbackQuery = `${cleanedTitle} ${artist} Official Audio`;
+    if (bestScore < 0.55) {
+        const fallbackQuery = `${cleanedTitle} ${artist}`;
         const fallbackResults = await ytmusic.searchSongs(fallbackQuery);
-        const fallbackMatch = findBestMatch(fallbackResults, cleanedTitle, artist);
+        const fallbackMatch = findBestMatch(fallbackResults, cleanedTitle, artist, durationMs, primaryArtist);
         
         if (fallbackMatch.score > bestScore) {
             bestScore = fallbackMatch.score;
@@ -83,10 +117,22 @@ const searchSong = async (title, artist) => {
         }
     }
 
-    if (bestMatch && bestScore >= 0.6) {
+    // Category Fallback Strategy: Videos
+    if (bestScore < 0.55) {
+        const videoQuery = `${cleanedTitle} ${artist}`;
+        const videoResults = await ytmusic.searchVideos(videoQuery);
+        const videoMatch = findBestMatch(videoResults, cleanedTitle, artist, durationMs, primaryArtist);
+
+        if (videoMatch.score > bestScore) {
+            bestScore = videoMatch.score;
+            bestMatch = videoMatch.match;
+        }
+    }
+
+    if (bestMatch && bestScore >= 0.55) {
         let confidence = 'low';
-        if (bestScore >= 0.9) confidence = 'high';
-        else if (bestScore >= 0.75) confidence = 'medium';
+        if (bestScore >= 0.85) confidence = 'high';
+        else if (bestScore >= 0.70) confidence = 'medium';
 
         return {
             ...bestMatch,
