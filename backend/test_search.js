@@ -33,7 +33,7 @@ const testCases = [
     { title: "Meant to Be (feat. Florida Georgia Line)", artist: "Bebe Rexha", expected: "Meant to Be" },
     
     // Bollywood / Long metadata titles
-    { title: "Ishq Jalakar - Karvaan", artist: "Shashwat Sachdev, Aditya Dhar", expected: "Ishq Jalakar" },
+    { title: "Ishq Jalakar - Karvaan", artist: "Shashwat Sachdev, Aditya Dhar", expected: "Ishq Jalakar", durationMs: 230000 },
     { title: "Ez-Ez", artist: "Shashwat Sachdev, Diljit Dosanjh, Hanumankind", expected: "Ez-Ez" },
     { title: "Shararat", artist: "Ranveer, Aditya Dhar, Shashwat", expected: "Shararat" }
 ];
@@ -56,7 +56,7 @@ async function runTests() {
     for (const test of testCases) {
         console.log(`[TEST] Searching for: "${test.title}" by "${test.artist}"`);
         const primaryArtist = test.artist.split(',')[0].trim();
-        const result = await searchSong(test.title, test.artist, null, primaryArtist);
+        const result = await searchSong(test.title, test.artist, test.durationMs || null, primaryArtist);
         
         if (result) {
             console.log(`  -> Found: "${result.name}" by "${result.artist?.name || 'Unknown'}" (ID: ${result.videoId})`);

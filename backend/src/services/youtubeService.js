@@ -32,20 +32,22 @@ const normalizeString = (str) => {
         .trim();
 };
 
-const artistMatches = (primaryArtist, expectedArtist, candidateArtistInfo, candidateTitle) => {
+const artistMatches = (primaryArtist, expectedArtistString, candidateArtistInfo, candidateTitle) => {
     const cTitleNorm = normalizeString(candidateTitle).toLowerCase();
     const primaryNorm = normalizeString(primaryArtist).toLowerCase();
-    const expectedNorm = normalizeString(expectedArtist).toLowerCase();
+    
+    const expectedArtists = expectedArtistString.split(',').map(a => normalizeString(a).toLowerCase());
     
     let artists = [];
     if (candidateArtistInfo) {
         artists = Array.isArray(candidateArtistInfo) ? candidateArtistInfo : [candidateArtistInfo];
     }
     
-    const artistMatch = artists.some(artist => {
-        if (!artist || !artist.name) return false;
-        const cName = normalizeString(artist.name).toLowerCase();
-        return expectedNorm.includes(cName) || cName.includes(expectedNorm);
+    const artistMatch = artists.some(candidateArtist => {
+        if (!candidateArtist || !candidateArtist.name) return false;
+        const cName = normalizeString(candidateArtist.name).toLowerCase();
+        
+        return expectedArtists.some(exp => exp.includes(cName) || cName.includes(exp));
     });
 
     const titleMatch = primaryNorm && primaryNorm.length > 2 && cTitleNorm.includes(primaryNorm);
@@ -65,18 +67,23 @@ const findBestMatch = (results, targetTitle, targetArtist, durationMs, primaryAr
             continue;
         }
 
-        if (durationMs && song.duration) {
-            const diffSeconds = Math.abs((durationMs / 1000) - song.duration);
-            if (diffSeconds > 12) {
-                continue; // Reject videos differing by more than 12 seconds
-            }
-        }
-
         const candidateTitleNorm = normalizeString(cleanTitle(song.name)).toLowerCase();
         let simScore = stringSimilarity.compareTwoStrings(expectedTitleNorm, candidateTitleNorm);
 
-        // Boosts and penalties
         const isTopicOrVevo = song.artist && song.artist.name && (song.artist.name.endsWith(' - Topic') || song.artist.name.endsWith('VEVO'));
+
+        if (durationMs && song.duration) {
+            const diffSeconds = Math.abs((durationMs / 1000) - song.duration);
+            let maxTolerance = 12;
+            if (isTopicOrVevo || simScore > 0.85) {
+                maxTolerance = 30;
+            }
+            if (diffSeconds > maxTolerance) {
+                continue; 
+            }
+        }
+
+        // Boosts and penalties
         if (isTopicOrVevo) {
             simScore += 0.15;
         }

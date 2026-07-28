@@ -91,7 +91,7 @@ const createPlaylist = async (req, res) => {
 
         for (const track of spotifyTracks) {
             const title = track.item?.name;
-            const artist = track.item?.artists?.map(a => a.name).join(" ");
+            const artist = track.item?.artists?.map(a => a.name).join(", ");
             const primaryArtist = track.item?.artists?.[0]?.name;
             const durationMs = track.item?.duration_ms;
             const spotifyUrl = track.item?.external_urls?.spotify;
