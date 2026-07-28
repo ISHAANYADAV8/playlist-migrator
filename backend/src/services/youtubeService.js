@@ -55,53 +55,65 @@ const artistMatches = (primaryArtist, expectedArtistString, candidateArtistInfo,
 };
 
 const findBestMatch = (results, targetTitle, targetArtist, durationMs, primaryArtist) => {
-    let match = null;
-    let score = -1;
-    if (!results || results.length === 0) return { match, score };
+    let bestMatch = null;
+    let highestScore = -1;
+    if (!results || results.length === 0) return { match: bestMatch, score: highestScore };
 
     const topResults = results.slice(0, 5);
     const expectedTitleNorm = normalizeString(targetTitle).toLowerCase();
 
     for (const song of topResults) {
-        if (!artistMatches(primaryArtist, targetArtist, song.artist || song.artists, song.name)) {
-            continue;
-        }
-
+        let score = 0;
+        
+        // 1. Title Similarity (0 - 45 pts)
         const candidateTitleNorm = normalizeString(cleanTitle(song.name)).toLowerCase();
         let simScore = stringSimilarity.compareTwoStrings(expectedTitleNorm, candidateTitleNorm);
+        score += Math.round(simScore * 45);
 
+        // 2. Official Channel / Known Labels (30 pts)
         const isTopicOrVevo = song.artist && song.artist.name && (song.artist.name.endsWith(' - Topic') || song.artist.name.endsWith('VEVO'));
+        const knownLabels = ['saregama', 't-series', 'zee music', 'sony music', 'yrf', 'tips official', 'speed records'];
+        const isKnownLabel = song.artist && song.artist.name && knownLabels.some(l => song.artist.name.toLowerCase().includes(l));
+        
+        // ytmusic searchSongs returns 'type: "SONG"' for officially licensed tracks
+        const isOfficialLicensed = song.type === 'SONG' || !!song.album;
 
+        if (isTopicOrVevo || isKnownLabel || isOfficialLicensed) {
+            score += 30;
+        }
+
+        // 3. Artist Match (15 pts)
+        if (artistMatches(primaryArtist, targetArtist, song.artist || song.artists, song.name)) {
+            score += 15;
+        }
+
+        // 4. Duration (10 pts)
         if (durationMs && song.duration) {
             const diffSeconds = Math.abs((durationMs / 1000) - song.duration);
-            let maxTolerance = 12;
-            if (isTopicOrVevo || simScore > 0.85) {
-                maxTolerance = 30;
+            if (diffSeconds <= 15) {
+                score += 10;
+            } else if (diffSeconds <= 35) {
+                score += 5;
+            } else if (diffSeconds > 60) {
+                score -= 50; // Penalty
             }
-            if (diffSeconds > maxTolerance) {
-                continue; 
-            }
         }
 
-        // Boosts and penalties
-        if (isTopicOrVevo) {
-            simScore += 0.15;
+        // 5. Penalties
+        const rawTitleLower = song.name.toLowerCase();
+        const isCoverRemix = rawTitleLower.includes('cover') || rawTitleLower.includes('remix') || rawTitleLower.includes('fan made');
+        const targetTitleLower = targetTitle.toLowerCase();
+        if (isCoverRemix && !targetTitleLower.includes('cover') && !targetTitleLower.includes('remix')) {
+            score -= 30;
         }
 
-        const isCoverOrRemixRequested = expectedTitleNorm.includes('cover') || expectedTitleNorm.includes('remix');
-        const cTitleFullNorm = normalizeString(song.name).toLowerCase();
-        const isCandidateCoverOrRemix = cTitleFullNorm.includes('cover') || cTitleFullNorm.includes('remix') || cTitleFullNorm.includes('fan made');
-
-        if (!isCoverOrRemixRequested && isCandidateCoverOrRemix) {
-            simScore -= 0.3; // Penalty
-        }
-
-        if (simScore > score) {
-            score = simScore;
-            match = song;
+        if (score > highestScore) {
+            highestScore = score;
+            bestMatch = song;
         }
     }
-    return { match, score };
+
+    return { match: bestMatch, score: highestScore / 100 };
 };
 
 const searchSong = async (title, artist, durationMs, primaryArtist) => {

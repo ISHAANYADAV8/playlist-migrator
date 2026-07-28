@@ -32,11 +32,16 @@ const testCases = [
     // Complex titles
     { title: "Meant to Be (feat. Florida Georgia Line)", artist: "Bebe Rexha", expected: "Meant to Be" },
     
-    // Bollywood / Long metadata titles
+    // Bollywood / Long metadata titles (Dhurandhar)
+    { title: "Dhurandhar - Title Track", artist: "Shashwat Sachdev", expected: "Dhurandhar - Title Track" },
+    { title: "Naal Nachna", artist: "Shashwat Sachdev, Asees Kaur", expected: "Naal Nachna" },
+    { title: "Move - Yeh Ishq Ishq", artist: "Shashwat Sachdev, Lal Chand Yamla Jatt", expected: "Move - Yeh Ishq Ishq" },
+    { title: "Run Down The City", artist: "Shashwat Sachdev, Monica Dogra", expected: "Run Down The City" },
     { title: "Ishq Jalakar - Karvaan", artist: "Shashwat Sachdev, Aditya Dhar", expected: "Ishq Jalakar", durationMs: 230000 },
     { title: "Ez-Ez", artist: "Shashwat Sachdev, Diljit Dosanjh, Hanumankind", expected: "Ez-Ez" },
+    { title: "Lutt Le Gaya", artist: "Shashwat Sachdev, Simran Choudhary", expected: "Lutt Le Gaya" },
+    { title: "Ramba Ho", artist: "Shashwat Sachdev", expected: "Ramba Ho" },
     { title: "Shararat", artist: "Ranveer, Aditya Dhar, Shashwat", expected: "Shararat" },
-    { title: "Move - Yeh Ishq Ishq", artist: "Shashwat Sachdev, Lal Chand Yamla Jatt", expected: "Move - Yeh Ishq Ishq" },
     { title: "Teri Ni Kararan", artist: "Shashwat Sachdev, Lal Chand Yamla Jatt", expected: "Teri Ni Kararan" }
 ];
 
