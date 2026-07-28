@@ -35,7 +35,9 @@ const testCases = [
     // Bollywood / Long metadata titles
     { title: "Ishq Jalakar - Karvaan", artist: "Shashwat Sachdev, Aditya Dhar", expected: "Ishq Jalakar", durationMs: 230000 },
     { title: "Ez-Ez", artist: "Shashwat Sachdev, Diljit Dosanjh, Hanumankind", expected: "Ez-Ez" },
-    { title: "Shararat", artist: "Ranveer, Aditya Dhar, Shashwat", expected: "Shararat" }
+    { title: "Shararat", artist: "Ranveer, Aditya Dhar, Shashwat", expected: "Shararat" },
+    { title: "Move - Yeh Ishq Ishq", artist: "Shashwat Sachdev, Lal Chand Yamla Jatt", expected: "Move - Yeh Ishq Ishq" },
+    { title: "Teri Ni Kararan", artist: "Shashwat Sachdev, Lal Chand Yamla Jatt", expected: "Teri Ni Kararan" }
 ];
 
 const normalizeString = (str) => {

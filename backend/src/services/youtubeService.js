@@ -8,8 +8,8 @@ const initialize = async () => {
 };
 
 const cleanTitle = (title) => {
-    // 1. Split candidate video titles on delimiters |, :, / and take only the first segment.
-    let clean = title.split(/[|:\/]/)[0];
+    // 1. Split candidate video titles on delimiters |, : and take only the first segment.
+    let clean = title.split(/[|:]/)[0];
 
     clean = clean
         .replace(/\[.*?official video.*?\]/gi, '')
@@ -106,15 +106,16 @@ const findBestMatch = (results, targetTitle, targetArtist, durationMs, primaryAr
 
 const searchSong = async (title, artist, durationMs, primaryArtist) => {
     const cleanedTitle = cleanTitle(title);
+    const queryArtist = primaryArtist || artist.split(',')[0].trim();
     
     // First attempt: Title + Artist + Official Audio
-    const primaryQuery = `${cleanedTitle} ${artist} Official Audio`;
+    const primaryQuery = `${cleanedTitle} ${queryArtist} Official Audio`;
     const results = await ytmusic.searchSongs(primaryQuery);
     let { match: bestMatch, score: bestScore } = findBestMatch(results, cleanedTitle, artist, durationMs, primaryArtist);
 
     // Fallback attempt if score is low
     if (bestScore < 0.55) {
-        const fallbackQuery = `${cleanedTitle} ${artist}`;
+        const fallbackQuery = `${cleanedTitle} ${queryArtist}`;
         const fallbackResults = await ytmusic.searchSongs(fallbackQuery);
         const fallbackMatch = findBestMatch(fallbackResults, cleanedTitle, artist, durationMs, primaryArtist);
         
@@ -126,7 +127,7 @@ const searchSong = async (title, artist, durationMs, primaryArtist) => {
 
     // Category Fallback Strategy: Videos
     if (bestScore < 0.55) {
-        const videoQuery = `${cleanedTitle} ${artist}`;
+        const videoQuery = `${cleanedTitle} ${queryArtist}`;
         const videoResults = await ytmusic.searchVideos(videoQuery);
         const videoMatch = findBestMatch(videoResults, cleanedTitle, artist, durationMs, primaryArtist);
 
