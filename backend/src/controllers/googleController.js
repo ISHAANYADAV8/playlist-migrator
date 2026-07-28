@@ -87,16 +87,24 @@ const createPlaylist = async (req, res) => {
         const youtubePlaylistId = playlist.data.id;
         console.log("Created Playlist:", youtubePlaylistId);
 
+        const needsReview = [];
+
         for (const track of spotifyTracks) {
             const title = track.item?.name;
             const artist = track.item?.artists?.map(a => a.name).join(" ");
+            const spotifyUrl = track.item?.external_urls?.spotify;
+            const imageUrl = track.item?.album?.images?.[0]?.url;
 
             console.log("Searching:", title);
 
             const yt = await youtubeService.searchSong(title, artist);
 
-            if (!yt?.videoId) {
-                console.log("Skipped:", title);
+            if (!yt?.videoId || yt.confidence === 'low') {
+                console.log("Needs Review:", title);
+                needsReview.push({
+                    spotifyTrack: { title, artist, url: spotifyUrl, image: imageUrl },
+                    youtubeMatch: yt ? { videoId: yt.videoId, title: yt.name, confidence: yt.confidence, score: yt.matchScore } : null
+                });
                 continue;
             }
 
@@ -119,7 +127,8 @@ const createPlaylist = async (req, res) => {
         res.json({
             success: true,
             playlistId: youtubePlaylistId,
-            url: `https://www.youtube.com/playlist?list=${youtubePlaylistId}`
+            url: `https://www.youtube.com/playlist?list=${youtubePlaylistId}`,
+            needsReview
         });
 
     } catch (err) {
