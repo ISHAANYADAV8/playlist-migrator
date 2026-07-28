@@ -20,6 +20,7 @@
     "google-auth-library": "^10.9.0",
     "googleapis": "^173.0.0",
     "spotify-url-info": "^3.3.1",
+    "string-similarity": "^4.0.4",
     "youtube-sr": "^4.3.12",
     "ytmusic-api": "^5.3.1"
   },

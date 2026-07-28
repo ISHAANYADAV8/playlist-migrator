@@ -25,6 +25,20 @@ const createPlaylist = async (tokens, title, description) => {
     return response.data;
 };
 
+const checkPlaylistExists = async (tokens, playlistId) => {
+    oauth2Client.setCredentials(tokens);
+    const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+    try {
+        const response = await youtube.playlists.list({
+            part: ["id"],
+            id: playlistId
+        });
+        return response.data.items && response.data.items.length > 0;
+    } catch (err) {
+        return false;
+    }
+};
+
 const addVideoToPlaylist = async (
     tokens,
     playlistId,
@@ -80,5 +94,6 @@ const addVideoToPlaylist = async (
 
 module.exports = {
     createPlaylist,
+    checkPlaylistExists,
     addVideoToPlaylist,
 };

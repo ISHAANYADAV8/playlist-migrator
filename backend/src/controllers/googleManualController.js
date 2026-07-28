@@ -1,4 +1,4 @@
-const youtubeSr = require("youtube-sr").default;
+const youtubeService = require("../services/youtubeService");
 const googleService = require("../services/googleService");
 
 const searchYouTube = async (req, res) => {
@@ -8,15 +8,15 @@ const searchYouTube = async (req, res) => {
             return res.status(400).json({ error: "Query parameter is required" });
         }
 
-        // Search standard YouTube
-        const videos = await youtubeSr.search(query, { limit: 5, type: "video" });
+        // Search using ytmusic-api instead of broken youtube-sr
+        const videos = await youtubeService.searchManual(query);
 
         const results = videos.map(v => ({
-            videoId: v.id,
-            title: v.title,
-            channel: v.channel?.name || "Unknown Channel",
-            duration: v.durationFormatted,
-            thumbnail: v.thumbnail?.url
+            videoId: v.videoId,
+            title: v.name,
+            channel: v.artist?.name || "Unknown Artist",
+            duration: `${Math.floor(v.duration / 60)}:${(v.duration % 60).toString().padStart(2, '0')}`,
+            thumbnail: v.thumbnails && v.thumbnails.length > 0 ? v.thumbnails[0].url : null
         }));
 
         res.json({ results });

@@ -247,9 +247,14 @@ function App() {
         const query = `${track.title} ${track.artist}`;
         const res = await fetch(`${API_BASE}/google/search?query=${encodeURIComponent(query)}`);
         const data = await res.json();
-        setManualResolution({ track, results: data.results, loading: false, error: null });
+        
+        if (!res.ok) {
+            throw new Error(data.error || "Failed to search YouTube");
+        }
+        
+        setManualResolution({ track, results: data.results || [], loading: false, error: null });
     } catch (err) {
-        setManualResolution({ track, results: [], loading: false, error: "Failed to search YouTube" });
+        setManualResolution({ track, results: [], loading: false, error: err.message || "Failed to search YouTube" });
     }
   };
 
@@ -541,7 +546,7 @@ function App() {
               ) : manualResolution.results.length === 0 ? (
                 <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>No results found.</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '400px', overflowY: 'auto', paddingRight: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '8px' }}>
                   {manualResolution.results.map((res, i) => (
                     <div key={i} style={{ display: 'flex', gap: '16px', background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', alignItems: 'center' }}>
                       {res.thumbnail && (
