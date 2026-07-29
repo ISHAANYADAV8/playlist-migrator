@@ -54,9 +54,27 @@ A powerful, cross-platform utility that seamlessly migrates your private Spotify
    - Create a `.env` file and add your `VITE_BACKEND_URL`.
    - Start the development server with `npm run dev`.
 
-## 📸 Screenshots
+## 📸 Screenshots & Demo
 
-*(Add your screenshots of the UI, migration progress, and manual resolution here!)*
+### 🏠 Home Page
+Securely connect your Spotify and YouTube accounts.
+![Home Page](assets/home.png)
+
+### 📋 Select Your Playlist
+View and select from your private Spotify playlists.
+![Your Playlists](assets/playlists.png)
+
+### ⚙️ Configure Transfer
+Review the tracks, choose what to transfer, and start the migration!
+![Configure Transfer](assets/configure-transfer.png)
+
+### 🎉 Migration Complete
+Your Spotify playlist is now seamlessly recreated on YouTube Music.
+![Migrated Playlist](assets/youtube-playlist.png)
+
+### 🎥 Demo Video
+*(Add your video link here, e.g., YouTube or direct file link)*
+[Watch the Demo Video](link-to-video)
 
 ---
 *Built by [Ishaan Yadav](https://github.com/ISHAANYADAV8)*
