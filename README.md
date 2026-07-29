@@ -73,7 +73,7 @@ Your Spotify playlist is now seamlessly recreated on YouTube Music.
 ![Migrated Playlist](assets/youtube-playlist.png)
 
 ### 🎥 Demo Video
-*(Add your video link here, e.g., YouTube or direct file link)*
+
 [Watch the Demo Video](link-to-video)
 
 ---
